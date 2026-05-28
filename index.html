@@ -11,7 +11,7 @@
     <h1>แบบสอบถาม</h1>
     <p class="subtitle">กรุณากรอกชื่อของคุณ</p>
 
-    <div id="dbStatus" class="db-status ready">✓ เก็บข้อมูลในรูปแบบไฟล์ JSON (Local)</div>
+    <div id="dbStatus" class="db-status">กำลังเชื่อมต่อ PostgreSQL...</div>
 
     <form id="nameForm" autocomplete="off">
       <label for="name">ชื่อ</label>
@@ -21,21 +21,20 @@
         type="text"
         placeholder="พิมพ์ชื่อของคุณที่นี่..."
         required
-        maxlength="100"
+        maxlength="255"
+        disabled
       />
-      <button type="submit">ส่งข้อมูล</button>
+      <button type="submit" disabled>ส่งข้อมูล</button>
     </form>
 
     <div id="message" class="message" hidden></div>
 
     <section class="list-section">
       <div class="list-header">
-        <h2>ข้อมูลที่เก็บไว้ <span id="count">(0)</span></h2>
+        <h2>ข้อมูลในตาราง responses <span id="count">(0)</span></h2>
         <div class="actions">
-          <button id="exportJsonBtn" type="button" class="action-btn">ดาวน์โหลด .json</button>
+          <button id="refreshBtn" type="button" class="action-btn">รีเฟรช</button>
           <button id="exportCsvBtn" type="button" class="action-btn">ดาวน์โหลด .csv</button>
-          <button id="importBtn" type="button" class="action-btn">นำเข้า .json</button>
-          <input id="importFile" type="file" accept="application/json,.json" hidden />
           <button id="clearBtn" type="button" class="clear-btn">ล้างทั้งหมด</button>
         </div>
       </div>
@@ -43,23 +42,12 @@
     </section>
 
     <details class="schema-info">
-      <summary>ดูโครงสร้างไฟล์ JSON</summary>
-<pre><code>{
-  "version": 1,
-  "exported_at": "2026-05-28T10:30:00.000Z",
-  "responses": [
-    {
-      "id": 1,
-      "name": "สมชาย ใจดี",
-      "created_at": "2026-05-28T10:25:13.456Z"
-    },
-    {
-      "id": 2,
-      "name": "สมหญิง รักเรียน",
-      "created_at": "2026-05-28T10:26:42.789Z"
-    }
-  ]
-}</code></pre>
+      <summary>ดู Schema ของตาราง (PostgreSQL)</summary>
+<pre><code>CREATE TABLE responses (
+  id         SERIAL       PRIMARY KEY,
+  name       VARCHAR(255) NOT NULL,
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);</code></pre>
     </details>
   </main>
 

@@ -1,53 +1,17 @@
-const STORAGE_KEY = "survey_data_json";
-const SCHEMA_VERSION = 1;
+const API_BASE = "/api/responses";
 
 const form = document.getElementById("nameForm");
 const input = document.getElementById("name");
+const submitBtn = form.querySelector("button[type=submit]");
 const message = document.getElementById("message");
 const list = document.getElementById("nameList");
 const count = document.getElementById("count");
 const clearBtn = document.getElementById("clearBtn");
-const exportJsonBtn = document.getElementById("exportJsonBtn");
+const refreshBtn = document.getElementById("refreshBtn");
 const exportCsvBtn = document.getElementById("exportCsvBtn");
-const importBtn = document.getElementById("importBtn");
-const importFile = document.getElementById("importFile");
+const dbStatus = document.getElementById("dbStatus");
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { version: SCHEMA_VERSION, responses: [] };
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.responses)) {
-      return { version: SCHEMA_VERSION, responses: [] };
-    }
-    return parsed;
-  } catch {
-    return { version: SCHEMA_VERSION, responses: [] };
-  }
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function nextId(responses) {
-  if (responses.length === 0) return 1;
-  return Math.max(...responses.map((r) => r.id || 0)) + 1;
-}
-
-function addResponse(name) {
-  const data = loadData();
-  data.responses.push({
-    id: nextId(data.responses),
-    name,
-    created_at: new Date().toISOString(),
-  });
-  saveData(data);
-}
-
-function deleteAll() {
-  saveData({ version: SCHEMA_VERSION, responses: [] });
-}
+let responses = [];
 
 function formatTime(iso) {
   const d = new Date(iso);
@@ -60,20 +24,28 @@ function formatTime(iso) {
   });
 }
 
+function showMessage(text, isError = false) {
+  message.textContent = text;
+  message.hidden = false;
+  message.classList.toggle("error", isError);
+  setTimeout(() => {
+    message.hidden = true;
+  }, 2800);
+}
+
 function render() {
-  const { responses } = loadData();
   count.textContent = `(${responses.length})`;
   list.innerHTML = "";
 
   if (responses.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty";
-    empty.textContent = "ยังไม่มีข้อมูลในไฟล์ JSON";
+    empty.textContent = "ยังไม่มีข้อมูลในฐานข้อมูล";
     list.appendChild(empty);
     return;
   }
 
-  [...responses].reverse().forEach((row) => {
+  responses.forEach((row) => {
     const li = document.createElement("li");
     const left = document.createElement("div");
     left.className = "row-left";
@@ -95,13 +67,49 @@ function render() {
   });
 }
 
-function showMessage(text, isError = false) {
-  message.textContent = text;
-  message.hidden = false;
-  message.classList.toggle("error", isError);
-  setTimeout(() => {
-    message.hidden = true;
-  }, 2800);
+async function checkHealth() {
+  try {
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    if (data.status === "ok") {
+      dbStatus.textContent = "✓ เชื่อมต่อ PostgreSQL บน Railway สำเร็จ";
+      dbStatus.classList.add("ready");
+      input.disabled = false;
+      submitBtn.disabled = false;
+      return true;
+    }
+    throw new Error(data.message || "Unknown error");
+  } catch (err) {
+    dbStatus.textContent = "✗ ไม่สามารถเชื่อมต่อฐานข้อมูล: " + err.message;
+    dbStatus.classList.add("error");
+    return false;
+  }
+}
+
+async function fetchAll() {
+  const res = await fetch(API_BASE);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  responses = data.responses || [];
+  render();
+}
+
+async function insertResponse(name) {
+  const res = await fetch(API_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function deleteAll() {
+  const res = await fetch(API_BASE, { method: "DELETE" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 function downloadBlob(blob, filename) {
@@ -115,22 +123,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-function exportJson() {
-  const data = loadData();
-  const exportObj = {
-    version: SCHEMA_VERSION,
-    exported_at: new Date().toISOString(),
-    responses: data.responses,
-  };
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], {
-    type: "application/json;charset=utf-8",
-  });
-  const stamp = new Date().toISOString().slice(0, 10);
-  downloadBlob(blob, `survey-${stamp}.json`);
-}
-
 function exportCsv() {
-  const { responses } = loadData();
   const header = "id,name,created_at\n";
   const body = responses
     .map(
@@ -143,68 +136,55 @@ function exportCsv() {
   downloadBlob(blob, `survey-${stamp}.csv`);
 }
 
-function importJson(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const parsed = JSON.parse(e.target.result);
-      if (!Array.isArray(parsed.responses)) {
-        throw new Error("ไม่พบ field 'responses' ที่เป็น array");
-      }
-
-      const current = loadData();
-      const existingIds = new Set(current.responses.map((r) => r.id));
-      let added = 0;
-
-      parsed.responses.forEach((row) => {
-        if (typeof row.name !== "string") return;
-        const id = nextId(current.responses);
-        current.responses.push({
-          id,
-          name: row.name,
-          created_at: row.created_at || new Date().toISOString(),
-        });
-        existingIds.add(id);
-        added++;
-      });
-
-      saveData(current);
-      render();
-      showMessage(`นำเข้าข้อมูล ${added} รายการสำเร็จ ✓`);
-    } catch (err) {
-      showMessage("ไฟล์ไม่ถูกต้อง: " + err.message, true);
-    }
-  };
-  reader.readAsText(file);
-}
-
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const value = input.value.trim();
   if (!value) return;
 
-  addResponse(value);
-  input.value = "";
-  showMessage(`บันทึก "${value}" ลงไฟล์ JSON เรียบร้อย ✓`);
-  render();
-});
-
-clearBtn.addEventListener("click", () => {
-  if (loadData().responses.length === 0) return;
-  if (confirm("ต้องการลบข้อมูลทั้งหมดใช่หรือไม่?")) {
-    deleteAll();
-    render();
+  submitBtn.disabled = true;
+  try {
+    await insertResponse(value);
+    input.value = "";
+    showMessage(`บันทึก "${value}" ลงฐานข้อมูลเรียบร้อย ✓`);
+    await fetchAll();
+  } catch (err) {
+    showMessage("เกิดข้อผิดพลาด: " + err.message, true);
+  } finally {
+    submitBtn.disabled = false;
   }
 });
 
-exportJsonBtn.addEventListener("click", exportJson);
-exportCsvBtn.addEventListener("click", exportCsv);
+clearBtn.addEventListener("click", async () => {
+  if (responses.length === 0) return;
+  if (!confirm("ต้องการลบข้อมูลทั้งหมดในตารางใช่หรือไม่?")) return;
 
-importBtn.addEventListener("click", () => importFile.click());
-importFile.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (file) importJson(file);
-  importFile.value = "";
+  try {
+    await deleteAll();
+    await fetchAll();
+    showMessage("ลบข้อมูลทั้งหมดเรียบร้อย ✓");
+  } catch (err) {
+    showMessage("เกิดข้อผิดพลาด: " + err.message, true);
+  }
 });
 
-render();
+refreshBtn.addEventListener("click", async () => {
+  try {
+    await fetchAll();
+    showMessage("รีเฟรชข้อมูลเรียบร้อย ✓");
+  } catch (err) {
+    showMessage("เกิดข้อผิดพลาด: " + err.message, true);
+  }
+});
+
+exportCsvBtn.addEventListener("click", exportCsv);
+
+(async () => {
+  const ok = await checkHealth();
+  if (ok) {
+    try {
+      await fetchAll();
+    } catch (err) {
+      showMessage("โหลดข้อมูลไม่สำเร็จ: " + err.message, true);
+    }
+  }
+})();
