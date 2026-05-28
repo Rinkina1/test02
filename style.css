@@ -89,6 +89,28 @@ input[type="text"]:disabled {
   cursor: not-allowed;
 }
 
+select {
+  padding: 14px 16px;
+  font-size: 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+  background: #fff;
+  cursor: pointer;
+}
+
+select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+select:disabled {
+  background: #f7fafc;
+  cursor: not-allowed;
+}
+
 button[type="submit"] {
   margin-top: 8px;
   padding: 14px;
@@ -220,6 +242,23 @@ h2 {
   border-radius: 6px;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+.age-badge {
+  font-size: 11px;
+  background: #ed8936;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.row-left .name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #nameList li .time {

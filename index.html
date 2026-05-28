@@ -24,6 +24,18 @@
         maxlength="255"
         disabled
       />
+
+      <label for="age">ช่วงอายุ</label>
+      <select id="age" name="age" required disabled>
+        <option value="">-- กรุณาเลือกช่วงอายุ --</option>
+        <option value="ต่ำกว่า 18 ปี">ต่ำกว่า 18 ปี</option>
+        <option value="18-25 ปี">18-25 ปี</option>
+        <option value="26-35 ปี">26-35 ปี</option>
+        <option value="36-45 ปี">36-45 ปี</option>
+        <option value="46-60 ปี">46-60 ปี</option>
+        <option value="มากกว่า 60 ปี">มากกว่า 60 ปี</option>
+      </select>
+
       <button type="submit" disabled>ส่งข้อมูล</button>
     </form>
 
@@ -46,6 +58,7 @@
 <pre><code>CREATE TABLE responses (
   id         SERIAL       PRIMARY KEY,
   name       VARCHAR(255) NOT NULL,
+  age        VARCHAR(50),
   created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );</code></pre>
     </details>

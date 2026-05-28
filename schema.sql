@@ -4,5 +4,8 @@ CREATE TABLE IF NOT EXISTS responses (
   created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE responses
+  ADD COLUMN IF NOT EXISTS age VARCHAR(50);
+
 CREATE INDEX IF NOT EXISTS idx_responses_created_at
   ON responses (created_at DESC);

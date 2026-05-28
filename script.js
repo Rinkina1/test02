@@ -2,6 +2,7 @@ const API_BASE = "/api/responses";
 
 const form = document.getElementById("nameForm");
 const input = document.getElementById("name");
+const ageSelect = document.getElementById("age");
 const submitBtn = form.querySelector("button[type=submit]");
 const message = document.getElementById("message");
 const list = document.getElementById("nameList");
@@ -53,9 +54,14 @@ function render() {
     idSpan.className = "id-badge";
     idSpan.textContent = `#${row.id}`;
     const nameSpan = document.createElement("span");
+    nameSpan.className = "name";
     nameSpan.textContent = row.name;
+    const ageSpan = document.createElement("span");
+    ageSpan.className = "age-badge";
+    ageSpan.textContent = row.age || "-";
     left.appendChild(idSpan);
     left.appendChild(nameSpan);
+    left.appendChild(ageSpan);
 
     const timeSpan = document.createElement("span");
     timeSpan.className = "time";
@@ -75,6 +81,7 @@ async function checkHealth() {
       dbStatus.textContent = "✓ เชื่อมต่อ PostgreSQL บน Railway สำเร็จ";
       dbStatus.classList.add("ready");
       input.disabled = false;
+      ageSelect.disabled = false;
       submitBtn.disabled = false;
       return true;
     }
@@ -94,11 +101,11 @@ async function fetchAll() {
   render();
 }
 
-async function insertResponse(name) {
+async function insertResponse(name, age) {
   const res = await fetch(API_BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, age }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -124,11 +131,11 @@ function downloadBlob(blob, filename) {
 }
 
 function exportCsv() {
-  const header = "id,name,created_at\n";
+  const header = "id,name,age,created_at\n";
   const body = responses
     .map(
       (r) =>
-        `${r.id},"${String(r.name).replace(/"/g, '""')}","${r.created_at}"`
+        `${r.id},"${String(r.name).replace(/"/g, '""')}","${r.age || ""}","${r.created_at}"`
     )
     .join("\n");
   const blob = new Blob(["﻿" + header + body], { type: "text/csv;charset=utf-8" });
@@ -139,13 +146,15 @@ function exportCsv() {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const value = input.value.trim();
-  if (!value) return;
+  const age = ageSelect.value;
+  if (!value || !age) return;
 
   submitBtn.disabled = true;
   try {
-    await insertResponse(value);
+    await insertResponse(value, age);
     input.value = "";
-    showMessage(`บันทึก "${value}" ลงฐานข้อมูลเรียบร้อย ✓`);
+    ageSelect.value = "";
+    showMessage(`บันทึก "${value}" (${age}) ลงฐานข้อมูลเรียบร้อย ✓`);
     await fetchAll();
   } catch (err) {
     showMessage("เกิดข้อผิดพลาด: " + err.message, true);

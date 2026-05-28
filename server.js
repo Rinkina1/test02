@@ -34,10 +34,19 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+const ALLOWED_AGES = [
+  "ต่ำกว่า 18 ปี",
+  "18-25 ปี",
+  "26-35 ปี",
+  "36-45 ปี",
+  "46-60 ปี",
+  "มากกว่า 60 ปี",
+];
+
 app.get("/api/responses", async (_req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, name, created_at FROM responses ORDER BY id DESC"
+      "SELECT id, name, age, created_at FROM responses ORDER BY id DESC"
     );
     res.json({ responses: rows });
   } catch (err) {
@@ -48,16 +57,24 @@ app.get("/api/responses", async (_req, res) => {
 app.post("/api/responses", async (req, res) => {
   try {
     const name = String(req.body?.name ?? "").trim();
+    const age = String(req.body?.age ?? "").trim();
+
     if (!name) {
       return res.status(400).json({ error: "name is required" });
     }
     if (name.length > 255) {
       return res.status(400).json({ error: "name must be 255 chars or less" });
     }
+    if (!age) {
+      return res.status(400).json({ error: "age is required" });
+    }
+    if (!ALLOWED_AGES.includes(age)) {
+      return res.status(400).json({ error: "invalid age value" });
+    }
 
     const { rows } = await pool.query(
-      "INSERT INTO responses (name) VALUES ($1) RETURNING id, name, created_at",
-      [name]
+      "INSERT INTO responses (name, age) VALUES ($1, $2) RETURNING id, name, age, created_at",
+      [name, age]
     );
     res.status(201).json({ response: rows[0] });
   } catch (err) {
